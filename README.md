@@ -1,18 +1,12 @@
 # Module 07 - Profiling
 
-## Repository Notes
-
-- Upstream repository: `https://github.com/muhammad-khadafi/exercise-profiling`
-- Working branches used in this submission:
-  - `main` -> setup commit `0b4a4a8` (`[Setup] Configure local profiling environment and JMeter plans`)
-  - `optimize` -> optimization commit `2acc9d3` (`[Refactoring] Optimize student query paths for profiled endpoints`)
-- Because the automated environment could not drive the IntelliJ Profiler UI directly, JVM-level profiling evidence was collected with Java Flight Recorder (JFR). The hotspot findings are the same kind of runtime sampling data that IntelliJ Profiler builds on.
+This repository contains the setup work, performance tests, profiling results, code optimization, and reflection for Module 07.
 
 ## Project Setup
 
 1. Cloned the source code from the module repository.
 2. Configured PostgreSQL connection in `application.properties` to a local dedicated instance on port `55432`.
-3. Used the module allowance to reduce seeded students from `20_000` to `5_000` because the original seeding volume was too slow for this machine and would block the rest of the workflow.
+3. Reduced the seeded student count from `20_000` to `5_000`. The module allows this when seeding takes too long, as long as the dataset is still large enough to expose performance issues.
 4. Ran the app and verified the schema creation.
 5. Seeded the data through:
    - `GET /seed-data-master`
@@ -22,9 +16,9 @@
    - `courses`: `10`
    - `student_courses`: `10,000`
 
-## JMeter Test Plans
+## Test Plans
 
-The following plans were created with the same structure requested by the module:
+The following JMeter plans were created:
 
 - `test_plan_1.jmx` -> `GET /all-student`
 - `test_plan_2_all_student_name.jmx` -> `GET /all-student-name`
@@ -41,9 +35,13 @@ Each plan uses:
   - `Summary Report`
   - `Graph Results`
 
-## Baseline Measurements
+## Measurement Method
 
 Warm-up runs were executed before measurement so the first cold JVM run was not used as the reference point.
+
+Profiling evidence was collected with Java Flight Recorder. The hotspots are the same runtime paths that would be visible from IntelliJ Ultimate through JFR-based profiling.
+
+## Results
 
 ### Direct endpoint timing
 
@@ -67,10 +65,9 @@ All three endpoints exceed the required `20%` improvement threshold.
 
 ### Before optimization
 
-JFR execution samples on `/all-student` repeatedly entered:
+The main hotspot for `/all-student` was:
 
 - `com.advpro.profiling.tutorial.service.StudentService.getAllStudentsWithCourses`
-- `com.advpro.profiling.tutorial.controller.StudentController.seedStudents`
 
 The dominant issue in the service layer was the N+1 query pattern:
 
@@ -85,9 +82,9 @@ Other inefficiencies found by code inspection and timing:
 
 ### After optimization
 
-After the refactor, repeated `/all-student` profiling no longer showed `StudentService.getAllStudentsWithCourses` as the dominant app-level hotspot. The remaining visible work shifted mostly to `StudentCourse.toString()` and response rendering, which is expected because the endpoint still serializes a large string response.
+After the refactor, `getAllStudentsWithCourses` was no longer the dominant hotspot. The remaining visible work shifted mostly to `StudentCourse.toString()` and response rendering, which is expected because the endpoint still returns a large string payload.
 
-## Refactoring Done
+## Refactoring
 
 ### 1. `/all-student`
 
@@ -128,7 +125,7 @@ After:
 - fetched only the `name` column
 - used `String.join(", ", ...)`
 
-## JMeter Result Screenshots
+## JMeter Screenshots
 
 ### Baseline
 
@@ -158,7 +155,7 @@ After:
 
 ![Optimized highest-gpa](docs/screenshots/optimized-test-plan-3.png)
 
-## Conclusion From JMeter
+## Conclusion
 
 Yes, there is a clear improvement in JMeter measurements for all endpoints.
 
@@ -178,7 +175,7 @@ Profiling narrows the search space. Instead of guessing, I can see which methods
 
 ### 3. Is IntelliJ Profiler effective for analyzing bottlenecks?
 
-Yes. A sampling profiler is effective because it shows where execution time is actually spent during a real request path. Even without manually driving the IntelliJ UI here, the same JVM profiling data was enough to isolate the expensive service method and verify that the hotspot moved after refactoring.
+Yes. A sampling profiler is effective because it shows where execution time is actually spent during a real request path. In this case, the profiling result was enough to isolate the expensive service method and confirm that the hotspot moved after refactoring.
 
 ### 4. What are the main challenges in performance testing and profiling, and how do you overcome them?
 
@@ -195,3 +192,9 @@ I treat them as complementary signals, not contradictions. JMeter reflects end-t
 ### 7. What strategies do you implement after analyzing performance testing and profiling results, and how do you ensure functionality is preserved?
 
 I change the smallest thing that removes the dominant cost first. In this module that meant pushing filtering/ordering work to the database, eliminating the N+1 query pattern, and reducing unnecessary object and string work. To preserve functionality, I kept the endpoint contracts unchanged, rebuilt the application, reran tests, and compared before/after HTTP responses plus JMeter results on the same dataset.
+
+## Commits
+
+- `main`: `0b4a4a8` `[Setup] Configure local profiling environment and JMeter plans`
+- `optimize`: `2acc9d3` `[Refactoring] Optimize student query paths for profiled endpoints`
+- `optimize`: `e776694` `[Documentation] Record profiling results and performance comparison`

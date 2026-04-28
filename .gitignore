@@ -32,13 +32,13 @@ build/
 ### VS Code ###
 .vscode/
 
-app-*.log
-app-*.err.log
-*.pid
-results/
-reports/
-jmeter.log
-profiling/
-static-server*.log
-static-server*.err.log
-static-server.pid
+/app-*.log
+/app-*.err.log
+/*.pid
+/results/
+/reports/
+/jmeter.log
+/profiling/
+/static-server*.log
+/static-server*.err.log
+/static-server.pid
